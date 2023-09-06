@@ -7,6 +7,8 @@ function onOpen() {
   ui.createMenu('Metabase')
     .addItem('Import Question', 'importQuestion')
     .addItem('Import All Questions in Sheets', 'importAllQuestions')
+    .addItem('Set Token', 'setToken')
+    .addItem('Set Session', 'setSession')
     .addToUi();
 }
 
@@ -156,38 +158,55 @@ function getSheetNumbers() {
   return questionNumbers;
 }
 
+function setToken() {
+    var token = Browser.inputBox('Please input your token:', Browser.Buttons.OK_CANCEL);
+    var scriptProp = PropertiesService.getScriptProperties();
+    scriptProp.setProperty('TOKEN', token);
+}
+
+function setSession() {
+    var session = Browser.inputBox('Please input your Session number:', Browser.Buttons.OK_CANCEL);
+    var scriptProp = PropertiesService.getScriptProperties();
+    scriptProp.setProperty('SESSION', session);
+}
+
 function getToken(baseUrl, username, password) {
-  var sessionUrl = baseUrl + "api/session";
-  var options = {
-    "method": "post",
-    "headers": {
-      "Content-Type": "application/json"
-    },
-    "payload": JSON.stringify({
-      username: username,
-      password: password
-    })
-  };
-  var response;
-  try {
-    response = UrlFetchApp.fetch(sessionUrl, options);
-  } catch (e) {
-    throw (e);
-  }
-  var token = JSON.parse(response).id;
+  // var sessionUrl = baseUrl + "api/session";
+  // var options = {
+  //   "method": "post",
+  //   "headers": {
+  //     "Content-Type": "application/json"
+  //   },
+  //   "payload": JSON.stringify({
+  //     username: username,
+  //     password: password
+  //   })
+  // };
+  // var response;
+  // try {
+  //   response = UrlFetchApp.fetch(sessionUrl, options);
+  // } catch (e) {
+  //   throw (e);
+  // }
+  // var token = JSON.parse(response).id;
+
+  var scriptProp = PropertiesService.getScriptProperties();
+  var token = scriptProp.getProperty('TOKEN');
   return token;
 }
 
 function getQuestionAndFillSheet(baseUrl, token, metabaseQuestionNum, sheetName) {
   var questionUrl = baseUrl + "api/card/" + metabaseQuestionNum + "/query/csv";
+  var scriptProp = PropertiesService.getScriptProperties();
+  var session = scriptProp.getProperty('SESSION');
 
   var options = {
     "method": "post",
     "headers": {
       "Content-Type": "application/json",
-      "X-Metabase-Session": token
+      "X-Metabase-Session": session
     },
-    "muteHttpExceptions": true
+    "muteHttpExceptions": false
   };
 
   var response;
@@ -216,18 +235,18 @@ function getQuestionAndFillSheet(baseUrl, token, metabaseQuestionNum, sheetName)
     }
   } else if (statusCode == 401) {
     var scriptProp = PropertiesService.getScriptProperties();
-    var username = scriptProp.getProperty('USERNAME');
-    var password = scriptProp.getProperty('PASSWORD');
+    // var username = scriptProp.getProperty('USERNAME');
+    // var password = scriptProp.getProperty('PASSWORD');
 
-    var token = getToken(baseUrl, username, password);
-    scriptProp.setProperty('TOKEN', token);
-    var e = "Error: Could not retrieve question. Metabase says: '" + response.getContentText() + "'. Please try again in a few minutes.";
+    // var token = getToken(baseUrl, username, password);
+    // scriptProp.setProperty('TOKEN', token);
+    var e = "401 Unauthorized - Error: Could not retrieve question. Metabase says: '" + response.getContentText() + "'. Please try again in a few minutes. Or log back into metabase in another tab, open Chrome Developer Tools, then under Applications > Cookies, get the value for metabase.SESSION and use the Metabase > Set Session menu item again.";
     return {
       'success': false,
       'error': e
     };
   } else {
-    var e = "Error: Could not retrieve question. Metabase says: '" + response.getContentText() + "'. Please try again later.";
+    var e = "HTTP"+statusCode + "Error: Could not retrieve question. Metabase says: '" + response.getContentText() + "'. Please try again later. Or log back into metabase in another tab, open Chrome Developer Tools, then under Applications > Cookies, get the value for metabase.SESSION and use the Metabase > Set Session menu item again.";
     return {
       'success': false,
       'error': e
